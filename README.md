@@ -125,37 +125,51 @@ tests/test_app.py::TestGetTasks::test_get_tasks_returns_200      PASSED
 
 ---
 
-## ⚙️ Jenkins CI/CD Setup
+## ⚙️ Jenkins CI/CD Setup (Windows)
 
 ### Prerequisites
-1. [Download and install Jenkins](https://www.jenkins.io/download/) (Windows installer).
-2. During first-run setup, install the **Pipeline** plugin (usually pre-installed).
-3. Ensure Python is on the **system PATH** (not just the user PATH) so Jenkins can find it.
+1. [Download and install Jenkins](https://www.jenkins.io/download/) on Windows (LTS version recommended).
+2. Complete initial setup and ensure the standard **Pipeline** and **Git** plugins are installed.
+3. **Important for Windows Jenkins:** Ensure Python 3.8+ and Git are in the **System PATH** (accessible to the Jenkins service user):
+   - In PowerShell or Command Prompt, verify:
+     ```cmd
+     python --version
+     git --version
+     ```
+   - If Jenkins runs as a Windows Service (`Local System`), restart the Jenkins service after modifying System PATH.
 
-### Create the pipeline job
+### Create the Pipeline Job
 
-1. Open Jenkins at **http://localhost:8080**
-2. Click **New Item** → enter a name → choose **Pipeline** → click **OK**
-3. Under **Pipeline**, set **Definition** to `Pipeline script from SCM`
-4. Set **SCM** to `Git` and paste your repository URL
-5. Set **Script Path** to `Jenkinsfile`
-6. Click **Save**, then click **Build Now**
+1. Open Jenkins in your browser at **http://localhost:8080**
+2. Click **New Item** → enter `TaskTrack` → select **Pipeline** → click **OK**
+3. In the Pipeline configuration:
+   - **Definition**: Select `Pipeline script from SCM`
+   - **SCM**: Select `Git`
+   - **Repository URL**: `https://github.com/KempegowdaBK/TaskTrack.git` (or your repository URL)
+   - **Branch Specifier**: `*/main`
+   - **Script Path**: `Jenkinsfile`
+4. Click **Save**, then click **Build Now**
 
-### Pipeline stages
+### Pipeline Architecture & Stages
+
+The pipeline uses **Declarative Pipeline syntax** and executes native **Windows `bat` commands**:
 
 ```
-Checkout → Install Dependencies → Test → Build → Deploy
+[Checkout] ➔ [Install Dependencies] ➔ [Test] ➔ [Build] ➔ [Deploy]
 ```
 
-| Stage | What happens |
-|---|---|
-| **Checkout** | Jenkins pulls the latest code from GitHub |
-| **Install Dependencies** | Creates a `venv` and runs `pip install -r requirements.txt` |
-| **Test** | Runs `pytest tests/ -v` — the build fails if any test fails |
-| **Build** | Writes a `build/build_info.txt` with timestamp and commit hash |
-| **Deploy** | Copies application files to `deployed_app/` (local demo) |
+| Stage | Batch Execution (`bat`) | Details & Safety Features |
+|---|---|---|
+| **1. Checkout** | `checkout scm` | Checks out source from GitHub into the Jenkins workspace. |
+| **2. Install Dependencies** | `python -m venv venv`<br>`call venv\Scripts\activate.bat`<br>`pip install -r requirements.txt` | • Checks that Python is accessible.<br>• Creates `venv` only if not already present.<br>• Activates virtual environment and installs/updates packages.<br>• Safe to rerun anytime. |
+| **3. Test** | `python -m pytest tests/ -v --tb=short` | • Executes all 20 automated tests using Flask test client.<br>• Halts pipeline immediately if any test fails. |
+| **4. Build** | Source verification & `type build\build_info.txt` | • Verifies presence of all required files (`app.py`, `templates/index.html`, etc.).<br>• Generates `build\build_info.txt` with build timestamp and Git commit ID. |
+| **5. Deploy** | `rmdir /s /q deployed_app`<br>`copy` & `xcopy` | • **Idempotent and clean**: Cleans prior deployment folder before copying.<br>• Copies application files to `deployed_app/` (demonstration folder).<br>• Verifies deployed files are present. |
 
-> **Note:** The deploy stage is safe to rerun — it clears the folder before copying.
+> **College Demo Tip:** To test the deployed application, navigate into the Jenkins workspace (or locally) and run:
+> ```cmd
+> python deployed_app\app.py
+> ```
 
 ---
 
