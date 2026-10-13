@@ -172,12 +172,28 @@ pipeline {
                         exit /b 1
                     )
 
-                    echo.
                     echo ========================================================
-                    echo   Deployment Complete (Local Demonstration)
+                    echo   Local Deployment Successful!
                     echo   Target directory : %DEPLOY_DIR%
-                    echo   To run deployed app : python %DEPLOY_DIR%\\app.py
                     echo ========================================================
+
+                    REM ---------------------------------------------------------
+                    REM Optional Remote Server / AWS EC2 Deployment
+                    REM ---------------------------------------------------------
+                    IF DEFINED AWS_EC2_HOST (
+                        echo.
+                        echo Connecting to Remote Server / AWS EC2: %AWS_EC2_HOST%...
+                        IF "%AWS_EC2_USER%"=="" set AWS_EC2_USER=ubuntu
+
+                        echo Syncing application files to AWS via SCP...
+                        scp -i "%AWS_SSH_KEY%" -o StrictHostKeyChecking=no -r "%DEPLOY_DIR%\\*" %AWS_EC2_USER%@%AWS_EC2_HOST%:/home/%AWS_EC2_USER%/tasktrack/
+
+                        echo Restarting application service on AWS via SSH...
+                        ssh -i "%AWS_SSH_KEY%" -o StrictHostKeyChecking=no %AWS_EC2_USER%@%AWS_EC2_HOST% "cd /home/%AWS_EC2_USER%/tasktrack && pip install -r requirements.txt && (pkill -f app.py || true) && nohup python3 app.py > app.log 2>&1 &"
+                        echo AWS EC2 Deployment Complete! Live at: http://%AWS_EC2_HOST%:5000
+                    ) ELSE (
+                        echo Note: AWS_EC2_HOST not set. Deployed to local production directory: %DEPLOY_DIR%
+                    )
                 '''
             }
         }

@@ -173,6 +173,75 @@ The pipeline uses **Declarative Pipeline syntax** and executes native **Windows 
 
 ---
 
+## ☁️ Connecting & Deploying to AWS EC2 / Temporary Cloud Server
+
+The `Jenkinsfile` Deploy stage automatically supports deploying to an **AWS EC2 instance** or any remote Linux server using native Windows OpenSSH (`scp` and `ssh`).
+
+### Option 1: AWS EC2 Instance Deployment (Recommended for Cloud Demonstration)
+
+#### Step 1: Launch an AWS EC2 Instance
+1. Log into your [AWS Management Console](https://aws.amazon.com/console/) and navigate to **EC2**.
+2. Click **Launch Instance**:
+   - **Name**: `TaskTrack-Server`
+   - **OS**: Ubuntu 24.04 LTS (Free Tier eligible).
+   - **Instance Type**: `t2.micro` or `t3.micro`.
+   - **Key pair**: Create or select an existing key pair (e.g. `tasktrack-key.pem`). Download and save the `.pem` file to your laptop (e.g. `C:\keys\tasktrack-key.pem`).
+3. Under **Network Settings / Security Group**, allow incoming traffic for:
+   - **SSH** (Port `22`) from `Anywhere (0.0.0.0/0)` or your IP.
+   - **Custom TCP** (Port `5000`) from `Anywhere (0.0.0.0/0)`.
+4. Click **Launch Instance** and note the **Public IPv4 address** (e.g., `3.110.120.45`).
+
+#### Step 2: One-Time Server Setup on AWS
+Connect once to your EC2 instance from PowerShell:
+```powershell
+ssh -i "C:\keys\tasktrack-key.pem" ubuntu@<YOUR-EC2-PUBLIC-IP>
+```
+Run this single command on the server to prepare Python and the destination folder:
+```bash
+sudo apt update && sudo apt install -y python3 python3-pip python3-venv
+mkdir -p ~/tasktrack
+```
+
+#### Step 3: Configure Jenkins for Automated AWS Deployment
+In your Jenkins dashboard:
+1. Go to **Manage Jenkins** ➔ **System** ➔ Scroll down to **Global properties** ➔ Check **Environment variables**.
+2. Add the following variables:
+   - `AWS_EC2_HOST` = `<YOUR-EC2-PUBLIC-IP>` (e.g. `3.110.120.45`)
+   - `AWS_EC2_USER` = `ubuntu`
+   - `AWS_SSH_KEY`  = `C:\keys\tasktrack-key.pem`
+3. Click **Save**.
+
+Now, whenever you push code to GitHub:
+1. Jenkins detects the change automatically via **SCM Polling**.
+2. Runs all unit tests.
+3. Packages the build.
+4. Uses `scp` to copy files to your AWS server.
+5. Uses `ssh` to restart the Flask application on AWS.
+6. Your updated app is immediately live at: **`http://<YOUR-EC2-PUBLIC-IP>:5000`**!
+
+---
+
+### Option 2: Free Instant Public Server (No AWS Credit Card Needed)
+
+If you don't have an AWS account or want a completely free temporary public URL for your demo:
+
+#### A. Free Cloud Hosting via Render.com:
+1. Go to [https://render.com](https://render.com) and create a free account with GitHub.
+2. Click **New +** ➔ **Web Service** ➔ Connect your `TaskTrack` GitHub repository.
+3. Settings:
+   - **Build Command**: `pip install -r requirements.txt`
+   - **Start Command**: `gunicorn app:app || python app.py`
+4. Click **Deploy**. Render gives you a public URL (e.g. `https://tasktrack.onrender.com`) that automatically redeploys on every GitHub push!
+
+#### B. Instant Public URL via ngrok:
+To make your deployed app accessible on the internet instantly:
+```powershell
+ngrok http 5000
+```
+This gives you a public URL like `https://xyz.ngrok-free.app` that proxies to your live application!
+
+---
+
 ## 🌐 Solving the Local Jenkins vs GitHub Webhook Challenge
 
 ### The Problem
