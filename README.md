@@ -173,6 +173,60 @@ The pipeline uses **Declarative Pipeline syntax** and executes native **Windows 
 
 ---
 
+## 🌐 Solving the Local Jenkins vs GitHub Webhook Challenge
+
+### The Problem
+- **GitHub** is a cloud service on the public internet.
+- **Jenkins** is running on your local laptop at `http://localhost:8082` (inside your local network / behind Wi-Fi NAT and Windows Firewall).
+- When you push code, GitHub cannot directly send an HTTP webhook to `http://localhost:8082` because `localhost` refers to GitHub's own server, not your machine.
+
+---
+
+### Solution A: SCM Polling (Recommended for College Demo — 100% Reliable & Zero Setup)
+
+Instead of GitHub pushing an inbound webhook to your laptop (which is blocked by NAT/Firewall), **Jenkins on your laptop initiates outbound polling to GitHub** on a schedule.
+
+#### How it works:
+1. Jenkins runs `pollSCM('* * * * *')` (every minute).
+2. Because your laptop can access GitHub via standard HTTPS (outbound), this works behind any college Wi-Fi, home router, or mobile hotspot without opening ports.
+3. Jenkins asks GitHub: *"Has the commit SHA on branch `main` changed?"*
+4. As soon as you run `git push`, Jenkins automatically detects the new commit within 60 seconds and triggers:
+   `Checkout ➔ Install Dependencies ➔ Run Pytest ➔ Build ➔ Deploy`
+
+#### How to enable it in Jenkins:
+1. In your **TaskTrack-CI-CD** job configuration in Jenkins:
+2. Under **Build Triggers**, check **Poll SCM**.
+3. In the **Schedule** box, enter:
+   ```cron
+   * * * * *
+   ```
+   *(Checks GitHub every minute for new commits).*
+4. Click **Save**.
+5. Test it: Push any change to GitHub, and within 1 minute Jenkins automatically triggers a build and executes all 20 tests!
+
+---
+
+### Solution B: Webhook Tunneling via ngrok (For Real-Time Webhook Demonstration)
+
+If your examiner specifically requests a real-time GitHub Webhook event payload:
+
+1. Download **ngrok** from [https://ngrok.com](https://ngrok.com) (or run `winget install ngrok`).
+2. Start an HTTP tunnel to your local Jenkins port:
+   ```cmd
+   ngrok http 8082
+   ```
+3. Copy the public forwarding URL provided by ngrok (e.g. `https://a1b2-c3d4.ngrok-free.app`).
+4. Go to your GitHub repository:
+   - Navigate to **Settings** ➔ **Webhooks** ➔ **Add webhook**
+   - **Payload URL**: `https://a1b2-c3d4.ngrok-free.app/github-webhook/`
+     *(Ensure the trailing slash `/` is included)*
+   - **Content type**: `application/json`
+   - **Which events**: Select **Just the push event**
+   - Click **Add webhook**
+5. Now, whenever you run `git push`, GitHub sends an instant webhook to the ngrok URL, which forwards it to `localhost:8082`, immediately triggering your pipeline!
+
+---
+
 ## 📌 Notes for College Demo
 
 - **No database required** — tasks are stored in Python memory. They reset when the server restarts (perfect for a demo).

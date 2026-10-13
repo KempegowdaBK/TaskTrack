@@ -4,6 +4,17 @@
 pipeline {
     agent any
 
+    // Automated Triggers: Automatically run test & build pipeline upon GitHub code changes
+    triggers {
+        // Trigger 1 (Recommended): Poll GitHub every minute for new commits.
+        // Works behind any router/NAT/firewall without needing a public IP or third-party tunnel.
+        pollSCM('* * * * *')
+
+        // Trigger 2: GitHub Webhook push notification.
+        // Triggers instantly if you configure a public tunnel like ngrok or smee.io.
+        githubPush()
+    }
+
     environment {
         // Name of the local virtual-environment folder in workspace
         VENV_DIR = "venv"
