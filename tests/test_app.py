@@ -4,7 +4,12 @@ Run with: pytest tests/ -v
 """
 
 import json
+import sys
+import os
 import pytest
+
+# Ensure the root directory is on sys.path so 'app' is always found
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Import the Flask app and reset shared state before each test
 import app as app_module
